@@ -22,7 +22,7 @@ export default defineConfig(({ command }) => ({
     ...(command === "build"
       ? [
           nitro({
-            preset: process.env.VERCEL ? "vercel" : "cloudflare-module",
+            preset: process.env["VERCEL"] ? "vercel" : "cloudflare-module",
           }),
         ]
       : []),
