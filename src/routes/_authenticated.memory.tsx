@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Brain, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { DEMO_MEMORIES } from "@/lib/lifeos/demo-data";
+import { actionService } from "@/lib/lifeos/services/action-service";
 import type { MemoryItem } from "@/lib/lifeos/types";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +43,23 @@ function MemoryPage() {
   const [filter, setFilter] = useState("all");
   const [draft, setDraft] = useState("");
 
-  const visible = filter === "all" ? items : items.filter((item) => item.category === filter);
+  const { data: dbMemories, refetch } = useQuery({
+    queryKey: ["user-memories"],
+    queryFn: async () => {
+      const records = await actionService.listUserMemories();
+      return records.map((r) => ({
+        id: r.id,
+        statement: r.statement,
+        category: r.category || "behavior",
+        source: "Learned by LIFEOS AI",
+        confidence: r.confidence ?? 0.9,
+        learnedAt: new Date(r.learned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }));
+    },
+  });
+
+  const allItems = [...(dbMemories ?? []), ...items];
+  const visible = filter === "all" ? allItems : allItems.filter((item) => item.category === filter);
 
   async function addMemory() {
     const statement = draft.trim();
@@ -64,7 +82,10 @@ function MemoryPage() {
       confidence: 1,
     });
     if (error) toast.error("Saved locally only", { description: error.message });
-    else toast.success("Added to your memory");
+    else {
+      toast.success("Added to your memory");
+      void refetch();
+    }
   }
 
   return (

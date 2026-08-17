@@ -28,6 +28,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { DEMO_PREDICTIONS } from "@/lib/lifeos/demo-data";
+import { actionService } from "@/lib/lifeos/services/action-service";
 
 export const Route = createFileRoute("/_authenticated/actions")({
   head: () => ({
@@ -113,28 +114,29 @@ function ActionsPage() {
     {},
   );
 
-  async function persist(action: ActionDef, status: string) {
-    if (!user) return;
-    const { error } = await supabase.from("actions").insert({
-      user_id: user.id,
-      action_type: action.type,
-      title: action.title,
-      description: action.description,
-      status,
-      payload: { impact: action.impact, source: "demo_scenario" },
-    });
-    if (error) toast.error("Could not record the action", { description: error.message });
-  }
+  async function handleAction(action: ActionDef, status: "confirmed" | "snoozed" | "dismissed") {
+    setStatuses((prev) => ({ ...prev, [action.id]: status }));
+    if (status === "confirmed") setPending(null);
 
-  async function confirm(action: ActionDef) {
-    setStatuses((prev) => ({ ...prev, [action.id]: "confirmed" }));
-    setPending(null);
-    await persist(action, "confirmed");
-    toast.success("Action confirmed", {
-      description: action.external
-        ? "Recorded in your action log. External integrations are mocked in this prototype."
-        : "Recorded in your action log.",
-    });
+    await actionService.persistAction(
+      {
+        type: action.type,
+        title: action.title,
+        description: action.description,
+        impact: action.impact,
+      },
+      status
+    );
+
+    if (status === "confirmed") {
+      toast.success("Action Executed & Saved", {
+        description: "Recorded in your action log, created a task, and saved a learned preference to your Digital Twin.",
+      });
+    } else if (status === "snoozed") {
+      toast.info("Action Snoozed for 30 minutes");
+    } else {
+      toast("Action Dismissed — feedback saved");
+    }
   }
 
   return (
@@ -148,8 +150,7 @@ function ActionsPage() {
 
       <div className="mb-4">
         <DemoNotice>
-          Confirming an action records it in your private action log. Navigation, calendar and
-          reminder integrations are mock services in this prototype.
+          Confirming an action records it in your private action log, creates a task, and updates your Digital Twin memories.
         </DemoNotice>
       </div>
 
@@ -194,22 +195,14 @@ function ActionsPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => {
-                    setStatuses((prev) => ({ ...prev, [action.id]: "snoozed" }));
-                    void persist(action, "snoozed");
-                    toast("Snoozed for 30 minutes");
-                  }}
+                  onClick={() => void handleAction(action, "snoozed")}
                 >
                   <Clock3 className="mr-1.5 size-3.5" /> Snooze
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => {
-                    setStatuses((prev) => ({ ...prev, [action.id]: "dismissed" }));
-                    void persist(action, "dismissed");
-                    toast("Dismissed — recorded as feedback");
-                  }}
+                  onClick={() => void handleAction(action, "dismissed")}
                 >
                   <X className="mr-1.5 size-3.5" /> Dismiss
                 </Button>
@@ -255,8 +248,8 @@ function ActionsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => pending && void confirm(pending)}>
-              Confirm
+            <AlertDialogAction onClick={() => pending && void handleAction(pending, "confirmed")}>
+              Confirm & Execute
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

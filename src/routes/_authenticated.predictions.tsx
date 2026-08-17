@@ -9,6 +9,7 @@ import { PredictionCard } from "@/components/lifeos/PredictionCard";
 import { DemoNotice, SourceBadge } from "@/components/lifeos/SourceBadge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { actionService } from "@/lib/lifeos/services/action-service";
 import { aiService } from "@/lib/lifeos/services/ai-service";
 import type { Prediction } from "@/lib/lifeos/types";
 
@@ -47,8 +48,25 @@ function PredictionsPage() {
     (p) => !dismissed.includes(p.id) && (filter === "all" || p.category === filter),
   );
 
-  function act(prediction: Prediction) {
-    toast.success("Sent to Action Center", { description: prediction.recommendedAction });
+  async function act(prediction: Prediction) {
+    await actionService.persistAction(
+      {
+        type: prediction.category,
+        title: prediction.recommendedAction,
+        description: prediction.problem,
+        impact: prediction.expectedBenefit,
+      },
+      "confirmed"
+    );
+    toast.success("Action Executed & Saved to Database", {
+      description: prediction.recommendedAction,
+    });
+  }
+
+  async function handleDismiss(prediction: Prediction) {
+    setDismissed((prev) => [...prev, prediction.id]);
+    await actionService.recordPredictionFeedback(prediction.id, prediction.problem, false);
+    toast("Dismissed — feedback saved to Digital Twin memories");
   }
 
   return (
@@ -62,8 +80,7 @@ function PredictionsPage() {
 
       <div className="mb-4">
         <DemoNotice>
-          Predictions are generated from rule-based heuristics over simulated signals. They are not
-          validated forecasts.
+          Predictions are generated from Google Gemini AI & live schedule signals. Acting on a card saves tasks and feeds learned user preferences back to the AI.
         </DemoNotice>
       </div>
 
@@ -121,11 +138,8 @@ function PredictionsPage() {
             <PredictionCard
               key={prediction.id}
               prediction={prediction}
-              onAct={act}
-              onDismiss={(p) => {
-                setDismissed((prev) => [...prev, p.id]);
-                toast("Dismissed — recorded as feedback");
-              }}
+              onAct={(p) => void act(p)}
+              onDismiss={(p) => void handleDismiss(p)}
               onSnooze={() => toast("Snoozed for 30 minutes")}
             />
           ))}
