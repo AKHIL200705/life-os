@@ -21,6 +21,6 @@ jobs:
 
       - name: Apply Database Migrations
         run: |
-          supabase db push --project-ref doksbprllosbczahevew
+          supabase db push --project-ref vdvmkjprijjkxcojjkhy
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
