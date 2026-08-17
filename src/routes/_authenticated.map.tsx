@@ -1,13 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { Loader2, Navigation } from "lucide-react";
+import { toast } from "sonner";
 
 import { HoloMap } from "@/components/lifeos/HoloMap";
 import { PageHeader, Panel, PanelHeader } from "@/components/lifeos/Panel";
 import { DemoNotice } from "@/components/lifeos/SourceBadge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { mapService } from "@/lib/lifeos/services/map-service";
+import { mapService, type UserLocation } from "@/lib/lifeos/services/map-service";
 import type { MapMarker } from "@/lib/lifeos/types";
 
 export const Route = createFileRoute("/_authenticated/map")({
@@ -47,11 +49,36 @@ function MapPage() {
     "study",
     "place",
   ]);
+  const [userLoc, setUserLoc] = useState<UserLocation | null>(null);
+  const [locating, setLocating] = useState(false);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["map-markers"],
-    queryFn: () => mapService.listMarkers(),
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["map-markers", userLoc],
+    queryFn: () => mapService.listMarkers(userLoc),
   });
+
+  async function handleLocate() {
+    setLocating(true);
+    try {
+      const loc = await mapService.getUserCoordinates();
+      if (loc) {
+        setUserLoc(loc);
+        await mapService.saveLocationSnapshot(loc);
+        toast.success("Live Location Acquired", {
+          description: `Lat: ${loc.latitude.toFixed(4)}°, Lng: ${loc.longitude.toFixed(4)}° (±${Math.round(loc.accuracy)}m) · Saved to Digital Twin`,
+        });
+        void refetch();
+      } else {
+        toast.info("Location Unavailable", {
+          description: "Browser geolocation permission was not granted. Showing simulated map grid.",
+        });
+      }
+    } catch {
+      toast.error("Location Error", { description: "Could not retrieve GPS coordinates." });
+    } finally {
+      setLocating(false);
+    }
+  }
 
   const markers = (data ?? []).filter((m) => m.kind === "user" || enabled.includes(m.kind));
 
@@ -61,6 +88,21 @@ function MapPage() {
         eyebrow="Environment map"
         title="What is happening around you"
         description="Spatial signals are what turn a calendar into a prediction. Toggle layers to see which signals drive the current risk picture."
+        right={
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={locating}
+            onClick={() => void handleLocate()}
+          >
+            {locating ? (
+              <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+            ) : (
+              <Navigation className="mr-1.5 size-3.5 text-cyan-400" />
+            )}
+            {userLoc ? `GPS Active (${userLoc.latitude.toFixed(2)}°, ${userLoc.longitude.toFixed(2)}°)` : "Detect Live GPS"}
+          </Button>
+        }
       />
 
       <div className="mb-4">

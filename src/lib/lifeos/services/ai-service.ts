@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { supabase } from "@/integrations/supabase/client";
 import { DEMO_AGENTS, DEMO_PREDICTIONS, DEMO_SIMULATION } from "../demo-data";
 import type { AgentDef, Prediction, SimulationStep } from "../types";
 import { calendarService } from "./calendar-service";
@@ -49,10 +50,35 @@ export const realAiService: AiService = {
         console.warn("[LIFEOS AI] Could not load calendar events:", e);
       }
 
+      let locationSummary = "User Location: Simulated Urban Center";
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data: twinData } = await supabase
+            .from("digital_twin_states")
+            .select("context")
+            .eq("user_id", session.user.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (twinData?.context && typeof twinData.context === "object") {
+            const ctx = twinData.context as { location?: { latitude?: number; longitude?: number } };
+            if (ctx.location?.latitude && ctx.location?.longitude) {
+              locationSummary = `User Live GPS: ${ctx.location.latitude.toFixed(4)}°N, ${ctx.location.longitude.toFixed(4)}°E`;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[LIFEOS AI] Could not load twin location context:", e);
+      }
+
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: `You are the LIFEOS Proactive Friction Prediction Engine.
-User's upcoming live calendar schedule events:
+User Context:
+- ${locationSummary}
+- Live Schedule Events:
 ${eventsSummary}
 
 Analyze potential upcoming friction events (travel delays, tight transition times, double bookings, weather conflicts).
