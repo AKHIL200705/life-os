@@ -1,1 +1,0 @@
-import{c as e,t,u as n}from"./demo-data-CPhJ-8ZB.js";var r=e=>new Promise(t=>setTimeout(t,e)),i={async listPredictions(){return await r(220),e},async listAgents(){return await r(140),t},async runSimulation(e){return await r(180),n.map(t=>t.actor===`Environment`&&t.title===`Traffic increases`?{...t,detail:`${t.detail} (horizon: ${e} min)`}:t)}};export{i as t};
