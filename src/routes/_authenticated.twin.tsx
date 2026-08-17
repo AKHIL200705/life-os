@@ -1,16 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, BatteryLow, CalendarClock, CloudRain, Lock, MapPin, Wallet } from "lucide-react";
+import { useState } from "react";
+import { Activity, BatteryLow, CalendarClock, CloudRain, Loader2, Lock, MapPin, Sparkles, Wallet } from "lucide-react";
+import { toast } from "sonner";
 
 import { CoreOrb } from "@/components/lifeos/CoreOrb";
 import { PageHeader, Panel, PanelHeader } from "@/components/lifeos/Panel";
 import { Meter } from "@/components/lifeos/RiskGauge";
 import { DemoNotice } from "@/components/lifeos/SourceBadge";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { DEMO_CONTEXT, DEMO_SCHEDULE } from "@/lib/lifeos/demo-data";
+import { aiService } from "@/lib/lifeos/services/ai-service";
+import type { SimulationStep } from "@/lib/lifeos/types";
 
 export const Route = createFileRoute("/_authenticated/twin")({
   head: () => ({
@@ -49,6 +54,9 @@ const CONTEXT_NODES = [
 
 function TwinPage() {
   const { user } = useAuth();
+  const [simHorizon, setSimHorizon] = useState<number>(30);
+  const [simulating, setSimulating] = useState<boolean>(false);
+  const [simulationSteps, setSimulationSteps] = useState<SimulationStep[] | null>(null);
 
   const { data: prefs, isLoading } = useQuery({
     queryKey: ["preferences", user?.id],
@@ -64,24 +72,74 @@ function TwinPage() {
     },
   });
 
+  async function handleRunSimulation() {
+    setSimulating(true);
+    try {
+      const steps = await aiService.runSimulation(simHorizon);
+      setSimulationSteps(steps);
+      toast.success("AI Simulation Generated", {
+        description: `Google Gemini predicted ${steps.length} context transitions for a ${simHorizon}-minute horizon.`,
+      });
+    } catch {
+      toast.error("Simulation Failed", { description: "Could not generate AI context simulation." });
+    } finally {
+      setSimulating(false);
+    }
+  }
+
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         eyebrow="My digital twin"
         title="Your structured state"
         description="This is everything LIFEOS models about you. Nothing here is shared, and sensitive fields stay hidden until you grant explicit permission."
         right={
-          <Badge variant="outline" className="border-success/40 text-success">
-            <Lock className="mr-1.5 size-3" /> Private to you
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={simulating}
+              onClick={() => void handleRunSimulation()}
+            >
+              {simulating ? (
+                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1.5 size-3.5 text-primary" />
+              )}
+              {simulating ? "Simulating..." : `Simulate ${simHorizon}m Horizon`}
+            </Button>
+            <Badge variant="outline" className="border-success/40 text-success">
+              <Lock className="mr-1.5 size-3" /> Private to you
+            </Badge>
+          </div>
         }
       />
 
       <div className="mb-4">
         <DemoNotice>
-          Behaviour patterns below are simulated baselines; your saved preferences are real.
+          Behaviour patterns below are simulated baselines; your saved preferences and Gemini context predictions are live.
         </DemoNotice>
       </div>
+
+      {simulationSteps ? (
+        <Panel className="border-primary/40 bg-primary/5">
+          <PanelHeader
+            title={`Gemini AI Context Forecast (${simHorizon}-Minute Horizon)`}
+            subtitle="Simulated context progression computed by Google Gemini 2.5 Flash"
+          />
+          <div className="grid gap-3 sm:grid-cols-3">
+            {simulationSteps.map((step, idx) => (
+              <div key={idx} className="rounded-xl border border-primary/20 bg-surface/80 p-3">
+                <Badge variant="outline" className="mb-2 text-[10px] text-primary">
+                  {step.actor}
+                </Badge>
+                <p className="text-sm font-semibold">{step.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{step.detail}</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
         <Panel>
