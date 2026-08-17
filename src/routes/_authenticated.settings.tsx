@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Calendar, LogOut, RefreshCw } from "lucide-react";
+import { Bell, Calendar, LogOut, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader, Panel, PanelHeader } from "@/components/lifeos/Panel";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { calendarService } from "@/lib/lifeos/services/calendar-service";
+import { notificationService } from "@/lib/lifeos/services/notification-service";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -56,29 +57,63 @@ function SettingsPage() {
       <PageHeader eyebrow="Settings" title="Account & Integrations" description="Manage your identity, connected data streams, and session." />
 
       <Panel>
-        <PanelHeader title="Connected Data Streams" subtitle="Feed live schedule context to Gemini AI" />
-        <div className="rounded-xl border border-border bg-surface-2/50 p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400">
-                <Calendar className="size-5" />
+        <PanelHeader title="Connected Data Streams & Notifications" subtitle="Feed live schedule context and receive proactive risk alerts" />
+        <div className="space-y-3">
+          <div className="rounded-xl border border-border bg-surface-2/50 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400">
+                  <Calendar className="size-5" />
+                </div>
+                <div>
+                  <p className="font-medium">Google Calendar</p>
+                  <p className="text-xs text-muted-foreground">
+                    Sync schedule events to detect travel friction & double bookings
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium">Google Calendar</p>
-                <p className="text-xs text-muted-foreground">
-                  Sync schedule events to detect travel friction & double bookings
-                </p>
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={syncing}
+                onClick={() => void handleSyncCalendar()}
+              >
+                <RefreshCw className={`mr-1.5 size-3.5 ${syncing ? "animate-spin" : ""}`} />
+                {syncing ? "Syncing..." : "Sync Google Calendar"}
+              </Button>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={syncing}
-              onClick={() => void handleSyncCalendar()}
-            >
-              <RefreshCw className={`mr-1.5 size-3.5 ${syncing ? "animate-spin" : ""}`} />
-              {syncing ? "Syncing..." : "Sync Google Calendar"}
-            </Button>
+          </div>
+
+          <div className="rounded-xl border border-border bg-surface-2/50 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
+                  <Bell className="size-5" />
+                </div>
+                <div>
+                  <p className="font-medium">Web Push Notifications</p>
+                  <p className="text-xs text-muted-foreground">
+                    Receive system push alerts when Gemini predicts risk exceeding 85%
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  const perm = await notificationService.requestPermission();
+                  if (perm === "granted") {
+                    await notificationService.sendAlert("LIFEOS Notifications Enabled", "You will now receive high-severity friction push alerts.");
+                    toast.success("Web Push Notifications Active!");
+                  } else {
+                    toast.error("Permission Denied", { description: "Enable notifications in browser settings." });
+                  }
+                }}
+              >
+                <Bell className="mr-1.5 size-3.5 text-amber-400" />
+                Enable Push Alerts
+              </Button>
+            </div>
           </div>
         </div>
       </Panel>

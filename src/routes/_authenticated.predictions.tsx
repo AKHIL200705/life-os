@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Inbox, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { actionService } from "@/lib/lifeos/services/action-service";
 import { aiService } from "@/lib/lifeos/services/ai-service";
+import { notificationService } from "@/lib/lifeos/services/notification-service";
 import type { Prediction } from "@/lib/lifeos/types";
 
 export const Route = createFileRoute("/_authenticated/predictions")({
@@ -43,6 +44,12 @@ function PredictionsPage() {
     queryKey: ["predictions"],
     queryFn: () => aiService.listPredictions(),
   });
+
+  useEffect(() => {
+    if (data && data.length > 0) {
+      void notificationService.checkAndNotifyHighFriction(data);
+    }
+  }, [data]);
 
   const predictions = (data ?? []).filter(
     (p) => !dismissed.includes(p.id) && (filter === "all" || p.category === filter),

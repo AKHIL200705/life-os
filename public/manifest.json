@@ -1,0 +1,17 @@
+{
+  "name": "LIFEOS — Proactive Life Intelligence",
+  "short_name": "LIFEOS",
+  "description": "Friction prediction engine, digital twin, and proactive action center.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#06b6d4",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
