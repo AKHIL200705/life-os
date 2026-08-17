@@ -2,6 +2,7 @@ import { Outlet, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { AiAssistantWidget } from "@/components/lifeos/AiAssistantWidget";
 import { CoreOrb } from "@/components/lifeos/CoreOrb";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -35,6 +36,7 @@ function AuthenticatedLayout() {
   return (
     <AppShell>
       <Outlet />
+      <AiAssistantWidget />
     </AppShell>
   );
 }
