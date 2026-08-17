@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { DEMO_AGENTS, DEMO_PREDICTIONS, DEMO_SIMULATION } from "../demo-data";
 import type { AgentDef, Prediction, SimulationStep } from "../types";
+import { calendarService } from "./calendar-service";
 
 /**
  * AI service backed by Google Gemini GenAI SDK with fallback to simulated data.
@@ -36,30 +37,46 @@ export const realAiService: AiService = {
     }
 
     try {
+      let eventsSummary = "No upcoming calendar events ingested.";
+      try {
+        const events = await calendarService.listCalendarEvents();
+        if (events.length > 0) {
+          eventsSummary = events
+            .map((e) => `- ${e.title} at ${e.startsAt} (location: ${e.location || "unspecified"})`)
+            .join("\n");
+        }
+      } catch (e) {
+        console.warn("[LIFEOS AI] Could not load calendar events:", e);
+      }
+
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: `You are the LIFEOS Proactive Friction Prediction Engine.
+User's upcoming live calendar schedule events:
+${eventsSummary}
+
+Analyze potential upcoming friction events (travel delays, tight transition times, double bookings, weather conflicts).
 Generate 4 realistic near-term friction predictions across categories (travel, schedule, environment, finance, safety).
 Return a JSON array of predictions matching this structure:
 [
   {
     "id": "pred-live-1",
-    "problem": "Traffic Congestion on Express Route",
-    "category": "travel",
+    "problem": "Conflict between back-to-back meetings",
+    "category": "schedule",
     "probability": 0.88,
     "severity": "high",
     "confidence": 0.92,
     "minutesUntil": 25,
-    "reasons": ["Unusual roadwork reported", "Heavy rainfall approaching"],
+    "reasons": ["Only 5 minutes transition time between locations"],
     "signals": [
-      {"label": "Traffic", "value": "+24 min delay", "tone": "bad"},
-      {"label": "Weather", "value": "Heavy Rain", "tone": "warn"}
+      {"label": "Schedule", "value": "Tight Transition", "tone": "bad"},
+      {"label": "Traffic", "value": "+12 min travel required", "tone": "warn"}
     ],
-    "recommendedAction": "Depart 15 mins early via Ring Road",
-    "expectedBenefit": "Saves 20 mins travel time",
-    "situation": "Normal route is heavily bottlenecked",
-    "decision": "Reroute via bypass",
-    "alternatives": ["Take Metro Express", "Reschedule departure"],
+    "recommendedAction": "Reschedule second meeting by 15 minutes",
+    "expectedBenefit": "Prevents late arrival and travel stress",
+    "situation": "Back-to-back meetings at separate locations",
+    "decision": "Shift start time",
+    "alternatives": ["Join remotely via Zoom", "Depart 10 mins early"],
     "source": "prediction"
   }
 ]`,

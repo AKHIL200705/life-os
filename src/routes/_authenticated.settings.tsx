@@ -1,11 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { LogOut } from "lucide-react";
+import { useState } from "react";
+import { Calendar, LogOut, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader, Panel, PanelHeader } from "@/components/lifeos/Panel";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { calendarService } from "@/lib/lifeos/services/calendar-service";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -25,10 +27,61 @@ export const Route = createFileRoute("/_authenticated/settings")({
 function SettingsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [syncing, setSyncing] = useState(false);
+
+  async function handleSyncCalendar() {
+    setSyncing(true);
+    try {
+      const res = await calendarService.syncGoogleCalendar();
+      if (res.count > 0) {
+        toast.success("Google Calendar Synced", {
+          description: `Ingested ${res.count} upcoming event(s) into your friction prediction engine.`,
+        });
+      } else {
+        toast.info("Calendar Synced", {
+          description: "No new upcoming events found or re-authenticated session needed.",
+        });
+      }
+    } catch (err) {
+      toast.error("Sync Failed", {
+        description: err instanceof Error ? err.message : "Could not reach Google Calendar.",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <PageHeader eyebrow="Settings" title="Account" description="Your identity and session." />
+    <div className="mx-auto max-w-2xl space-y-6">
+      <PageHeader eyebrow="Settings" title="Account & Integrations" description="Manage your identity, connected data streams, and session." />
+
+      <Panel>
+        <PanelHeader title="Connected Data Streams" subtitle="Feed live schedule context to Gemini AI" />
+        <div className="rounded-xl border border-border bg-surface-2/50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400">
+                <Calendar className="size-5" />
+              </div>
+              <div>
+                <p className="font-medium">Google Calendar</p>
+                <p className="text-xs text-muted-foreground">
+                  Sync schedule events to detect travel friction & double bookings
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={syncing}
+              onClick={() => void handleSyncCalendar()}
+            >
+              <RefreshCw className={`mr-1.5 size-3.5 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Syncing..." : "Sync Google Calendar"}
+            </Button>
+          </div>
+        </div>
+      </Panel>
 
       <Panel>
         <PanelHeader title="Signed in as" subtitle={user?.email ?? "unknown"} />
